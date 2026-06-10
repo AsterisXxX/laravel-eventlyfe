@@ -7,35 +7,29 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\OrganizerController;
 use App\Http\Controllers\Api\CheckerController;
 use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\CategoryController;
 
 // ==================== ENDPOINT PUBLIK ====================
 // Bisa diakses tanpa login
+Route::get('/categories', [CategoryController::class, 'index']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
-
-Route::get('/events', [EventController::class, 'index']);      // Ambil semua event (Home/Discover)
-Route::get('/events/{id}', [EventController::class, 'show']);  // Ambil detail satu event
+Route::get('/events', [EventController::class, 'index']);
+Route::get('/events/{id}', [EventController::class, 'show']);
 
 
 // ==================== ENDPOINT PROTECTED ====================
 // Wajib membawa Bearer Token Sanctum
 Route::middleware(['auth:sanctum'])->group(function () {
 
-    // Logout
     Route::post('/logout', [AuthController::class, 'logout']);
 
-    // --------------------------------------------------------
-    // 1. AREA USER (PEMBELI)
-    // --------------------------------------------------------
     Route::middleware(['role:user'])->group(function () {
         Route::get('/profile', [UserController::class, 'profile']);
-
-        // Transaksi & Tiket
         Route::post('/checkout', [UserController::class, 'checkout']);
         Route::get('/my-tickets', [UserController::class, 'tickets']);
         Route::get('/my-tickets/{id}', [UserController::class, 'showTicket']);
-        Route::post('/my-tickets/upload/{id}', [UserController::class, 'uploadProof']); // Upload bukti bayar
-        // Route::get('/my-tickets/{id}/print', [...]) -> Bisa ditangani di sisi mobile untuk generate PDF/QR
+        Route::post('/my-tickets/upload/{id}', [UserController::class, 'uploadProof']);
     });
 
 
