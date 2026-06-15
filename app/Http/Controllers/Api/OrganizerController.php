@@ -12,16 +12,28 @@ class OrganizerController extends Controller
     // Dashboard / Statistik Ringkas
     public function dashboard(Request $request)
     {
-        $organizerId = $request->user()->id; // Asumsi kolom di event adalah organizer_id
+        $organizerId = $request->user()->id;
 
         $totalEvents = Event::where('organizer_id', $organizerId)->count();
-        // $totalTicketsSold = Ticket::whereHas('event', function($q) use($organizerId) { ... })->count();
+
+        // Hitung tiket lunas
+        $totalTicketsPaid = Ticket::whereHas('event', function($q) use($organizerId) {
+            $q->where('organizer_id', $organizerId);
+        })->where('status', 'paid')->count();
+
+        // Hitung antrean verifikasi
+        $pendingPayments = Ticket::whereHas('event', function ($q) use ($organizerId) {
+            $q->where('organizer_id', $organizerId);
+        })->where('status', 'pending')
+          ->whereNotNull('payment_proof')
+          ->count();
 
         return response()->json([
             'status' => 'success',
             'data' => [
                 'total_events' => $totalEvents,
-                // 'total_revenue' => ...
+                'total_tickets_paid' => $totalTicketsPaid,
+                'pending_payments' => $pendingPayments,
             ]
         ]);
     }
@@ -33,10 +45,12 @@ class OrganizerController extends Controller
 
         // Ambil tiket yang butuh verifikasi untuk event milik organizer ini
         $pendingTickets = Ticket::with(['user', 'event'])
-            ->where('status', 'pending')
             ->whereHas('event', function ($query) use ($organizerId) {
-                $query->where('organizer_id', $organizerId); // Sesuaikan nama kolom jika berbeda
+                $query->where('organizer_id', $organizerId);
             })
+            ->where('status', 'pending')
+            ->whereNotNull('payment_proof')
+            ->latest()
             ->get();
 
         return response()->json(['status' => 'success', 'data' => $pendingTickets]);
@@ -47,11 +61,12 @@ class OrganizerController extends Controller
     {
         $ticket = Ticket::find($id);
 
-        if (!$ticket) {
-            return response()->json(['status' => 'error', 'message' => 'Data tidak ditemukan.'], 404);
+        // Pastikan tiket ada dan milik event dari organizer ini
+        if (!$ticket || $ticket->event->organizer_id !== $request->user()->id) {
+            return response()->json(['status' => 'error', 'message' => 'Tiket tidak ditemukan atau akses ditolak.'], 404);
         }
 
-        $ticket->update(['status' => 'approved']); // Tiket sah
+        $ticket->update(['status' => 'paid']); // Status dirubah jadi 'paid' (Lunas)
 
         return response()->json(['status' => 'success', 'message' => 'Pembayaran tiket berhasil disetujui.']);
     }
@@ -61,11 +76,11 @@ class OrganizerController extends Controller
     {
         $ticket = Ticket::find($id);
 
-        if (!$ticket) {
-            return response()->json(['status' => 'error', 'message' => 'Data tidak ditemukan.'], 404);
+        if (!$ticket || $ticket->event->organizer_id !== $request->user()->id) {
+            return response()->json(['status' => 'error', 'message' => 'Tiket tidak ditemukan atau akses ditolak.'], 404);
         }
 
-        $ticket->update(['status' => 'rejected']); // Tiket tidak sah
+        $ticket->update(['status' => 'cancelled']); // Status dirubah jadi 'cancelled'
 
         return response()->json(['status' => 'success', 'message' => 'Pembayaran tiket ditolak.']);
     }
