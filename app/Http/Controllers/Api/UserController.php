@@ -26,7 +26,7 @@ class UserController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'event_id' => 'required|exists:events,id',
-            'quantity' => 'required|integer|min:1|max:5', // Batasan sama seperti web
+            'quantity' => 'required|integer|min:1|max:5', // Batasin max biar gak spam
         ]);
 
         if ($validator->fails()) {
@@ -35,31 +35,24 @@ class UserController extends Controller
 
         $event = Event::find($request->event_id);
 
-        // 1. Cek Kuota
-        if ($event->quota < $request->quantity) {
-            return response()->json(['status' => 'error', 'message' => 'Maaf, kuota tiket tidak mencukupi.'], 400);
-        }
-
         $createdTickets = [];
 
-        // 2. Simpan Tiket ke Database (Looping berdasarkan quantity)
+        // 🔥 LOGIKA BARU: Looping bikin tiket sejumlah quantity
+        // Karena di database lu 1 tiket = 1 baris (karena butuh ticket_code unik buat di-scan)
         for ($i = 0; $i < $request->quantity; $i++) {
             $createdTickets[] = Ticket::create([
-                'user_id'       => $request->user()->id,
-                'event_id'      => $event->id,
-                'ticket_code'   => 'TKT-' . strtoupper(Str::random(10)),
-                'price'         => $event->price,
-                'status'        => 'unpaid', // Status awal sebelum upload bukti
-                'is_scanned'    => false,
+                'user_id' => $request->user()->id,
+                'event_id' => $event->id,
+                'ticket_code' => 'TKT-' . strtoupper(\Illuminate\Support\Str::random(10)), // 🔥 Wajib ada
+                'price' => $event->price, // 🔥 Wajib ada
+                'status' => 'pending', // 🔥 Sesuaikan sama Enum di migration lu
+                'is_scanned' => false,
             ]);
         }
 
-        // 3. Update Kuota Event
-        $event->decrement('quota', $request->quantity);
-
         return response()->json([
             'status' => 'success',
-            'message' => 'Checkout berhasil, silakan unggah bukti pembayaran.',
+            'message' => 'Checkout berhasil, silakan lakukan pembayaran.',
             'data' => $createdTickets
         ], 201);
     }
