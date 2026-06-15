@@ -55,15 +55,14 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/verifications/{id}/reject', [OrganizerController::class, 'rejectTicket']);
     });
 
-
     // --------------------------------------------------------
     // 3. AREA CHECKER (STAFF SCANNER)
     // --------------------------------------------------------
     Route::middleware(['role:checker'])->prefix('checker')->group(function () {
         Route::get('/dashboard', [CheckerController::class, 'dashboard']); // List event yang ditugaskan ke checker ini
 
-        // Endpoint utama untuk mobile scanner (QR Code dsb)
-        Route::post('/verify/{eventId}', [CheckerController::class, 'verifyTicket']);
+        // 🔥 UBAH BARIS INI: Hapus /{eventId} agar murni menggunakan body JSON ticket_code
+        Route::post('/verify', [CheckerController::class, 'verifyTicket']);
     });
 
 
